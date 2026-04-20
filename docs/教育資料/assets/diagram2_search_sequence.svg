@@ -23,7 +23,7 @@
   <rect x="40" y="90" width="120" height="48" class="actor"/><text x="100" y="121" text-anchor="middle" class="label">user</text>
   <rect x="220" y="90" width="220" height="48" class="service"/><text x="330" y="121" text-anchor="middle" class="label">search-api</text>
   <rect x="500" y="90" width="170" height="48" class="actor"/><text x="585" y="121" text-anchor="middle" class="label">query embedding</text>
-  <rect x="730" y="90" width="220" height="48" class="data"/><text x="840" y="121" text-anchor="middle" class="label">BigQuery VECTOR_SEARCH</text>
+  <rect x="730" y="90" width="260" height="48" class="data"/><text x="860" y="114" text-anchor="middle" class="label small">Meilisearch + BigQuery</text><text x="860" y="132" text-anchor="middle" class="label small">BM25 / VECTOR_SEARCH</text>
   <rect x="1010" y="90" width="160" height="48" class="actor"/><text x="1090" y="121" text-anchor="middle" class="label">rerank</text>
   <rect x="1230" y="90" width="140" height="48" class="model"/><text x="1300" y="121" text-anchor="middle" class="label">model.txt</text>
   <rect x="1430" y="90" width="130" height="48" class="data"/><text x="1495" y="121" text-anchor="middle" class="label">ranking_log</text>
@@ -31,7 +31,7 @@
   <line x1="100" y1="138" x2="100" y2="700" class="lifeline"/>
   <line x1="330" y1="138" x2="330" y2="700" class="lifeline"/>
   <line x1="585" y1="138" x2="585" y2="700" class="lifeline"/>
-  <line x1="840" y1="138" x2="840" y2="700" class="lifeline"/>
+  <line x1="860" y1="138" x2="860" y2="700" class="lifeline"/>
   <line x1="1090" y1="138" x2="1090" y2="700" class="lifeline"/>
   <line x1="1300" y1="138" x2="1300" y2="700" class="lifeline"/>
   <line x1="1495" y1="138" x2="1495" y2="700" class="lifeline"/>
@@ -48,11 +48,11 @@
   <rect x="250" y="325" width="1260" height="235" class="group"/>
   <text x="280" y="355" class="label">search-api 内で進む推論工程</text>
 
-  <line x1="330" y1="395" x2="840" y2="395" class="arrow"/>
-  <text x="585" y="383" text-anchor="middle" class="label small">VECTOR_SEARCH(filters, embedding)</text>
+  <line x1="330" y1="395" x2="860" y2="395" class="arrow"/>
+  <text x="595" y="383" text-anchor="middle" class="label small">BM25 + VECTOR_SEARCH + filters</text>
 
-  <line x1="840" y1="450" x2="330" y2="450" class="return"/>
-  <text x="585" y="438" text-anchor="middle" class="label small">candidates + me5_score + lexical_rank</text>
+  <line x1="860" y1="450" x2="330" y2="450" class="return"/>
+  <text x="595" y="438" text-anchor="middle" class="label small">RRF candidates + me5_score + lexical_rank + semantic_rank</text>
 
   <line x1="1090" y1="395" x2="1300" y2="395" class="arrow"/>
   <text x="1195" y="383" text-anchor="middle" class="label small">load booster</text>
