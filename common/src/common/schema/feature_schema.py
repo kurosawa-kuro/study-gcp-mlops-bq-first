@@ -1,6 +1,6 @@
 """Shared feature / label schema for the real-estate ranker.
 
-Parity-locked files for this 9-column set:
+Parity-locked files for this 10-column set:
 
 1. ``definitions/features/property_features_daily.sqlx``  (training SQL)
 2. ``common/src/common/feature_engineering.py::build_ranker_features``  (serving)
@@ -23,6 +23,7 @@ FEATURE_COLS_RANKER: list[str] = [
     "inquiry_rate",
     "me5_score",
     "lexical_rank",
+    "semantic_rank",
 ]
 
 RANKER_GROUP_COL: str = "request_id"

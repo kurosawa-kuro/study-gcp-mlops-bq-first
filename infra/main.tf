@@ -1,8 +1,9 @@
 # =========================================================================
-# Root module — orchestrates 4 sub-modules with clear boundary:
+# Root module — orchestrates sub-modules with clear boundary:
 #   iam        → Service Accounts / WIF / project-level role bindings
 #   data       → BigQuery / GCS / Artifact Registry / Secret Manager + data IAM
 #   runtime    → Cloud Run Service & Job / Pub/Sub / Scheduler / Eventarc + invoker IAM
+#   meilisearch→ Cloud Run Service (BM25 lexical retrieval) + GCS FUSE data mount
 #   monitoring → log-based metrics / alert policies / mean-drift Scheduled Query
 #
 # Shared preconditions (API enablement) live in apis.tf and are enforced via
@@ -52,11 +53,25 @@ module "runtime" {
   ranking_log_table_id    = module.data.ranking_log_table.table_id
   feedback_events_table_id = module.data.feedback_events_table.table_id
   service_accounts        = module.iam.service_accounts
+  meili_base_url          = module.meilisearch.meili_base_url
+  search_cache_ttl_seconds = var.search_cache_ttl_seconds
 
   depends_on = [
     google_project_service.enabled,
     module.data,
+    module.meilisearch,
   ]
+}
+
+module "meilisearch" {
+  source = "./modules/meilisearch"
+
+  project_id            = var.project_id
+  region                = var.region
+  service_accounts      = module.iam.service_accounts
+  meili_data_bucket_name = var.meili_data_bucket_name
+
+  depends_on = [google_project_service.enabled]
 }
 
 module "monitoring" {

@@ -1,6 +1,6 @@
-"""Feature-parity invariant for the real-estate ranker (Phase 3a — 9 cols).
+"""Feature-parity invariant for the real-estate ranker (Phase R3 — 10 cols).
 
-Locks the 9-column ranker schema across 3 files:
+Locks the 10-column ranker schema across 3 files:
 
 1. ``common/src/common/schema/feature_schema.py`` (``FEATURE_COLS_RANKER``)
 2. ``common/src/common/feature_engineering.py`` (``build_ranker_features``)
@@ -47,8 +47,8 @@ def _extract_ranking_log_fields() -> list[tuple[str, str, str]]:
 # ---- schema.py internal consistency -------------------------------------------------
 
 
-def test_feature_cols_ranker_has_nine_columns() -> None:
-    assert len(FEATURE_COLS_RANKER) == 9
+def test_feature_cols_ranker_has_ten_columns() -> None:
+    assert len(FEATURE_COLS_RANKER) == 10
 
 
 def test_feature_cols_ranker_no_duplicates() -> None:
@@ -71,6 +71,7 @@ def test_build_ranker_features_keys_match_schema_exactly() -> None:
         },
         me5_score=0.8,
         lexical_rank=2,
+        semantic_rank=4,
     )
     assert list(out.keys()) == FEATURE_COLS_RANKER
 

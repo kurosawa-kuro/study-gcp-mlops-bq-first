@@ -34,8 +34,12 @@ from ..adapters import (
     CloudRunJobRunner,
     DispatchModelSource,
     GcsModelSource,
+    InMemoryTTLCacheStore,
     LocalModelSource,
+    MeilisearchLexical,
+    NoopCacheStore,
     NoopFeedbackRecorder,
+    NoopLexicalSearch,
     NoopRankingLogPublisher,
     PubSubFeedbackRecorder,
     PubSubPublisher,
@@ -45,7 +49,9 @@ from ..adapters import (
 from ..config import ApiSettings
 from ..middleware import RequestLoggingMiddleware
 from ..ports import (
+    CacheStore,
     FeedbackRecorder,
+    LexicalSearchPort,
     PredictionPublisher,
     RankingLogPublisher,
     TrainingJobRunner,
@@ -58,7 +64,7 @@ from ..schemas import (
     SearchResultItem,
 )
 from ..services.model_store import load_model, resolve_model_uri
-from ..services.ranking import run_search
+from ..services.ranking import normalize_search_cache_key, run_search
 from ..services.retrain_policy import evaluate as evaluate_retrain
 
 if TYPE_CHECKING:
@@ -98,11 +104,32 @@ def _build_candidate_retriever(settings: ApiSettings) -> BigQueryCandidateRetrie
         f"{settings.project_id}.{settings.bq_dataset_feature_mart}."
         f"{settings.bq_table_properties_cleaned}"
     )
+    lexical: LexicalSearchPort
+    if settings.meili_base_url:
+        lexical = MeilisearchLexical(
+            base_url=settings.meili_base_url,
+            index_name=settings.meili_index_name,
+            api_key=settings.meili_api_key,
+            require_identity_token=settings.meili_require_identity_token,
+        )
+    else:
+        lexical = NoopLexicalSearch()
+
     return BigQueryCandidateRetriever(
         project_id=settings.project_id,
+        lexical=lexical,
         embeddings_table=embeddings_table,
         features_table=features_table,
         properties_table=properties_table,
+    )
+
+
+def _build_search_cache(settings: ApiSettings) -> CacheStore:
+    if settings.search_cache_ttl_seconds <= 0:
+        return NoopCacheStore()
+    return InMemoryTTLCacheStore(
+        maxsize=settings.search_cache_maxsize,
+        default_ttl_seconds=settings.search_cache_ttl_seconds,
     )
 
 
@@ -177,6 +204,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     app.state.ranking_log_publisher = _build_ranking_log_publisher(settings)
     app.state.feedback_recorder = _build_feedback_recorder(settings)
+    app.state.search_cache = _build_search_cache(settings)
     app.state.settings = settings
     app.state.training_runs_table = training_runs_table
     logger.info(
@@ -229,6 +257,22 @@ def create_app() -> FastAPI:
                 status_code=503,
             )
         request_id = cast(str, getattr(request.state, "request_id", uuid.uuid4().hex))
+        settings: ApiSettings = request.app.state.settings
+        search_cache: CacheStore = request.app.state.search_cache
+        cache_key = normalize_search_cache_key(
+            query=req.query,
+            filters=req.filters.model_dump(),
+            top_k=req.top_k,
+        )
+        cached = search_cache.get(cache_key)
+        if cached is not None:
+            cached_results = [SearchResultItem.model_validate(item) for item in cached["results"]]
+            return SearchResponse(
+                request_id=request_id,
+                results=cached_results,
+                model_path=cached.get("model_path"),
+            )
+
         query_vec = encoder.encode_queries([req.query])[0]
         query_vector = [float(x) for x in query_vec]
 
@@ -239,6 +283,7 @@ def create_app() -> FastAPI:
             retriever=retriever,
             publisher=publisher,
             request_id=request_id,
+            query_text=req.query,
             query_vector=query_vector,
             filters=req.filters.model_dump(),
             top_k=req.top_k,
@@ -267,11 +312,20 @@ def create_app() -> FastAPI:
                 property_id=cand.property_id,
                 final_rank=final_rank,
                 lexical_rank=cand.lexical_rank,
+                semantic_rank=cand.semantic_rank,
                 me5_score=cand.me5_score,
                 score=score_by_id.get(cand.property_id),
             )
             for cand, final_rank in pairs
         ]
+        search_cache.set(
+            cache_key,
+            {
+                "results": [r.model_dump() for r in results],
+                "model_path": model_path,
+            },
+            settings.search_cache_ttl_seconds,
+        )
         return SearchResponse(request_id=request_id, results=results, model_path=model_path)
 
     @app.post("/feedback", response_model=FeedbackResponse)

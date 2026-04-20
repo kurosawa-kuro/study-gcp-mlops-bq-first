@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from app.config import ApiSettings
 from app.entrypoints.api import create_app
+from app.adapters.cache_store import InMemoryTTLCacheStore
 from fastapi.testclient import TestClient
 
 
@@ -29,7 +31,7 @@ class _StubCandidateRetriever:
     def __init__(self):
         self.calls: list[dict] = []
 
-    def retrieve(self, *, query_vector, filters, top_k):
+    def retrieve(self, *, query_text, query_vector, filters, top_k):
         from app.ports.candidate_retriever import Candidate
 
         self.calls.append({"filters": filters, "top_k": top_k})
@@ -37,6 +39,7 @@ class _StubCandidateRetriever:
             Candidate(
                 property_id=f"P-{i:03d}",
                 lexical_rank=i,
+                semantic_rank=i,
                 me5_score=0.9 - 0.1 * i,
                 property_features={
                     "rent": 100_000 + 1000 * i,
@@ -91,6 +94,8 @@ def app_with_search_stub():
     app.state.candidate_retriever = _StubCandidateRetriever()
     app.state.ranking_log_publisher = _StubRankingLogPublisher()
     app.state.feedback_recorder = _StubFeedbackRecorder()
+    app.state.search_cache = InMemoryTTLCacheStore(default_ttl_seconds=120)
+    app.state.settings = ApiSettings()
     app.state.booster = None
     app.state.model_path = None
 

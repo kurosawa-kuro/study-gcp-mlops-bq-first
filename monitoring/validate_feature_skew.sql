@@ -15,8 +15,8 @@ DECLARE training_start DATE DEFAULT DATE_SUB(today, INTERVAL 90 DAY);
 DECLARE serving_start TIMESTAMP DEFAULT TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY);
 
 -- Training window stats — UNPIVOT lists each feature once.
--- Source: daily property feature mart. me5_score / lexical_rank are query-time
--- signals (no training-side representation), so we restrict the skew check to
+-- Source: daily property feature mart. me5_score / lexical_rank / semantic_rank
+-- are query-time signals (no training-side representation), so we restrict the skew check to
 -- the 7 property-side features; me5_score and lexical_rank are monitored via
 -- the serving side only (volume / distribution sentinels below).
 CREATE OR REPLACE TEMP TABLE training_stats AS

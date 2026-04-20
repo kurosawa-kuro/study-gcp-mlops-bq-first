@@ -1,8 +1,8 @@
 """Inference-side feature engineering — ranker only (Phase 10b onward).
 
-:func:`build_ranker_features` assembles the 9-column ranker feature vector
+:func:`build_ranker_features` assembles the 10-column ranker feature vector
 from (a) a row fetched from ``feature_mart.property_features_daily``, plus
-(b) query-time signals ``me5_score`` and ``lexical_rank``. Output keys must
+(b) query-time signals ``me5_score`` and rank signals. Output keys must
 equal ``FEATURE_COLS_RANKER`` in ``schema/feature_schema.py``.
 
 Pure function — no GCP SDK imports, no file I/O — so it stays trivially
@@ -21,11 +21,13 @@ def build_ranker_features(
     property_features: dict[str, Any],
     me5_score: float,
     lexical_rank: int,
+    semantic_rank: int,
 ) -> dict[str, float]:
-    """Assemble the 9-column ranker feature dict (keys == FEATURE_COLS_RANKER).
+    """Assemble the 10-column ranker feature dict (keys == FEATURE_COLS_RANKER).
 
     ``property_features`` is a row from ``feature_mart.property_features_daily``;
-    ``me5_score`` and ``lexical_rank`` are computed online during /search.
+    query-time ``me5_score`` / ``lexical_rank`` / ``semantic_rank`` are computed
+    online during /search.
     Missing behavioral signals default to 0.0 — acceptable because the ranker
     treats zero as 'no signal' (cold-start) and the fallback popularity score
     handles the extreme case.
@@ -40,6 +42,7 @@ def build_ranker_features(
         "inquiry_rate": float(property_features.get("inquiry_rate") or 0.0),
         "me5_score": float(me5_score),
         "lexical_rank": float(lexical_rank),
+        "semantic_rank": float(semantic_rank),
     }
     # Sanity: ensure key order invariant holds (helps catch drift early).
     assert list(out.keys()) == FEATURE_COLS_RANKER

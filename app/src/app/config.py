@@ -12,6 +12,10 @@ class ApiSettings(BaseAppSettings):
     bq_table_property_embeddings: str = "property_embeddings"
     bq_table_property_features_daily: str = "property_features_daily"
     bq_table_properties_cleaned: str = "properties_cleaned"
+    meili_base_url: str = ""
+    meili_index_name: str = "properties"
+    meili_api_key: str = ""
+    meili_require_identity_token: bool = True
     # Local directory or GCS URI (gs://...) for the ME5 encoder checkpoint.
     # Empty string => sentence-transformers pulls from HuggingFace on startup
     # (dev-only path; not appropriate for Cloud Run).
@@ -30,3 +34,5 @@ class ApiSettings(BaseAppSettings):
     model_path_override: str = ""
     # Local cache directory for the downloaded booster file.
     local_model_dir: str = "/tmp/model"
+    search_cache_ttl_seconds: int = 120
+    search_cache_maxsize: int = 2048

@@ -28,6 +28,7 @@ class SearchResultItem(BaseModel):
     property_id: str
     final_rank: int
     lexical_rank: int
+    semantic_rank: int
     me5_score: float
     score: float | None = None  # None while rerank is disabled (Phase 4 MVP)
 

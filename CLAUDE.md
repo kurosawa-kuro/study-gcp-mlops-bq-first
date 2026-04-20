@@ -9,7 +9,7 @@
 ## 最初に読むもの (順番)
 
 1. [`docs/README.md`](docs/README.md) — ドキュメント運用ルール (権威順位 / 更新規約 / 書き方)
-2. [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md) — **決定的仕様** (Vertex AI / Meilisearch / Redis / PostgreSQL 非採用、LightGBM LambdaRank + BigQuery VECTOR_SEARCH + multilingual-e5-base + Cloud Run のみ)
+2. [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md) — **決定的仕様** (Meilisearch + BigQuery VECTOR_SEARCH + RRF + LambdaRank、Redis サーバ非採用)
 3. [`docs/03_実装カタログ.md`](docs/03_実装カタログ.md) — ディレクトリ / ファイル / DB テーブル / API / GCP / Terraform の逐一掲載
 4. [`docs/04_運用.md §1`](docs/04_運用.md) — 環境構築 STEP 1–17 (上から順に叩けば完走)
 
@@ -17,8 +17,8 @@
 
 ## bq-first の設計テーゼ (題材: 不動産ハイブリッド検索)
 
-- **題材**: 自由文クエリ + フィルタ → 物件ランキング上位 20 件。3 段構成 = (1) BigQuery VECTOR_SEARCH で候補 100 件抽出、(2) multilingual-e5-base でクエリ埋め込み + 物件側とのコサイン類似度、(3) LightGBM `lambdarank` で再ランク
-- **BigQuery + Cloud Run のみ**。モデル成果物は GCS (`gs://mlops-dev-a-models/lgbm/{date}/{run_id}/model.txt`)、系譜は BQ テーブル `mlops.training_runs`。**Vertex AI / Model Registry / BQML 非採用**
+- **題材**: 自由文クエリ + フィルタ → 物件ランキング上位 20 件。3 段構成 = (1a) Meilisearch BM25、(1b) BigQuery VECTOR_SEARCH、(2) RRF 融合、(3) LightGBM `lambdarank` 再ランク
+- **BigQuery + Cloud Run 中心**。モデル成果物は GCS (`gs://mlops-dev-a-models/lgbm/{date}/{run_id}/model.txt`)、系譜は BQ テーブル `mlops.training_runs`。**Vertex AI / Model Registry / BQML 非採用**
 - **Training-Serving Skew 対策が load-bearing**。Dataform SQL (`feature_mart.property_features_daily`) と `common.feature_engineering.build_ranker_features` を同一式で lockstep 維持 (`ctr = SAFE_DIVIDE(click_count, impression_count)` など、分子分母の順序が訓練側と推論側で 1:1)
 - **学習 = Cloud Run Jobs (`training-job` + `embedding-job`) / 推論 = Cloud Run Service (`search-api`)**。両方を Service にしない。モデルは**コンテナ同梱せず**、FastAPI `lifespan` で `mlops.training_runs` から最新 `run_id` の `model_path` を解決 → GCS から `model.txt` を download → `lgb.Booster` にロード (Phase 6 以降)
 - **Phase 4 rerank-free MVP** — Booster ロード前でも `/search` は候補抽出結果 (`final_rank = lexical_rank`) を返せる。ステージング疎通条件は `docs/04_運用.md §1 STEP 17`
@@ -51,12 +51,12 @@
 特徴量を追加 / 変更するとき、以下 5 つを **必ず同じ PR で揃える** (片方だけだと Scheduled Query のスキュー検知が FAIL する):
 
 1. `definitions/features/property_features_daily.sqlx` (訓練側 SQL — ctr / fav_rate / inquiry_rate の SAFE_DIVIDE 式)
-2. `common/src/common/feature_engineering.py::build_ranker_features` (推論側 Python、9 列の組み立て)
-3. `common/src/common/schema/feature_schema.py` の `FEATURE_COLS_RANKER` (9 列の順序と名前)
+2. `common/src/common/feature_engineering.py::build_ranker_features` (推論側 Python、10 列の組み立て)
+3. `common/src/common/schema/feature_schema.py` の `FEATURE_COLS_RANKER` (10 列の順序と名前)
 4. `infra/modules/data/main.tf` の `ranking_log.features` RECORD スキーマ (API publish のキー名と 1:1、FLOAT64 NULLABLE)
 5. `monitoring/validate_feature_skew.sql` の UNPIVOT (訓練側・推論側とも property-side 7 列を列挙、`tests/parity/test_feature_parity_sql_ranker.py` で検証)
 
-9 列中 7 列 (`rent` / `walk_min` / `age_years` / `area_m2` / `ctr` / `fav_rate` / `inquiry_rate`) が property-side で訓練 / 推論で共通。残り 2 列 (`me5_score` / `lexical_rank`) はクエリ時に計算されるので監視 SQL からは除外し、サービング側で別のサニティチェック (§3.8) を回す。
+10 列中 7 列 (`rent` / `walk_min` / `age_years` / `area_m2` / `ctr` / `fav_rate` / `inquiry_rate`) が property-side で訓練 / 推論で共通。残り 3 列 (`me5_score` / `lexical_rank` / `semantic_rank`) はクエリ時に計算されるので監視 SQL からは除外し、サービング側で別のサニティチェックを回す。
 
 ---
 
@@ -103,7 +103,7 @@ CI path filters (`app/**` / `jobs/**` / `definitions/**` / `infra/**`) は top-l
 
 | 役割 | パス | 引用ポイント |
 |---|---|---|
-| 不動産ハイブリッド検索の設計 | `/home/ubuntu/repos/study-gcp-mlops/study-llm-reranking-mlops` | LambdaRank ハイパラ / NDCG 評価 / 8 次元特徴量 / ラベル Gain / ME5 プロンプト規約 (`query:` / `passage:`)。I/O 層 (Meilisearch / Redis / PostgreSQL) は**持ち込まない** |
+| 不動産ハイブリッド検索の設計 | `/home/ubuntu/repos/study-gcp-mlops/study-llm-reranking-mlops` | LambdaRank ハイパラ / NDCG 評価 / ラベル Gain / ME5 プロンプト規約 (`query:` / `passage:`)。I/O 層は本リポの Port/Adapter に吸収 |
 | GCP I/O 層 | `/home/ubuntu/repos/starter-kit/mlops/` | GCS upload + BQ insert / Cloud Logging JSON formatter + request middleware / argparse entrypoint |
 | Terraform + CI/CD | `/home/ubuntu/repos/study-gcp/study-gcp-mlops/` | `terraform/*.tf` と `.github/workflows/{terraform,api-deploy,batch-deploy}.yml` の雛形 |
 

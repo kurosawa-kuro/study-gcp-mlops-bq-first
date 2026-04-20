@@ -19,6 +19,8 @@ fake adapters in ``app/tests/conftest.py``.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any, Protocol
 
 import numpy as np
@@ -27,6 +29,9 @@ from common.feature_engineering import build_ranker_features
 from common import FEATURE_COLS_RANKER
 
 from ..ports.candidate_retriever import Candidate, CandidateRetriever, RankingLogPublisher
+
+RRF_K: int = 60
+DEFAULT_SEARCH_CACHE_TTL_SECONDS: int = 120
 
 
 class _Booster(Protocol):
@@ -46,6 +51,7 @@ def _score_candidates(candidates: list[Candidate], booster: _Booster) -> list[fl
             property_features=cand.property_features,
             me5_score=cand.me5_score,
             lexical_rank=cand.lexical_rank,
+            semantic_rank=cand.semantic_rank,
         )
         for cand in candidates
     ]
@@ -58,6 +64,7 @@ def run_search(
     retriever: CandidateRetriever,
     publisher: RankingLogPublisher,
     request_id: str,
+    query_text: str,
     query_vector: list[float],
     filters: dict[str, Any],
     top_k: int,
@@ -71,6 +78,7 @@ def run_search(
     the top_k) so offline eval keeps the full pool.
     """
     candidates = retriever.retrieve(
+        query_text=query_text,
         query_vector=query_vector,
         filters=filters,
         top_k=top_k,
@@ -118,3 +126,35 @@ def run_search(
     paired = list(zip(candidates, final_ranks, strict=True))
     paired.sort(key=lambda cr: cr[1])
     return paired[:top_k]
+
+
+def normalize_search_cache_key(*, query: str, filters: dict[str, Any], top_k: int) -> str:
+    """Stable SHA256 cache key for /search requests."""
+    payload = {
+        "query": query.strip(),
+        "filters": filters,
+        "top_k": int(top_k),
+    }
+    normalized = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def rrf_fuse(
+    *,
+    lexical_results: list[tuple[str, int]],
+    semantic_results: list[tuple[str, int]],
+    top_n: int,
+    k: int = RRF_K,
+) -> list[str]:
+    """Reciprocal Rank Fusion over two rank lists.
+
+    Inputs are ``(property_id, rank)`` tuples where rank is 1-based.
+    """
+    scores: dict[str, float] = {}
+    for property_id, rank in lexical_results:
+        scores[property_id] = scores.get(property_id, 0.0) + 1.0 / (k + rank)
+    for property_id, rank in semantic_results:
+        scores[property_id] = scores.get(property_id, 0.0) + 1.0 / (k + rank)
+
+    sorted_ids = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+    return [property_id for property_id, _ in sorted_ids[:top_n]]

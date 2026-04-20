@@ -7,6 +7,8 @@ from .candidate_retriever import (
     PubSubFeedbackRecorder,
     PubSubRankingLogPublisher,
 )
+from .cache_store import InMemoryTTLCacheStore, MemorystoreRedisCacheStore, NoopCacheStore
+from .lexical_search import MeilisearchLexical, NoopLexicalSearch
 from .model_store import (
     BigQueryModelResolver,
     DispatchModelSource,
@@ -24,8 +26,13 @@ __all__ = [
     "CloudRunJobRunner",
     "DispatchModelSource",
     "GcsModelSource",
+    "InMemoryTTLCacheStore",
     "LocalModelSource",
+    "MeilisearchLexical",
+    "MemorystoreRedisCacheStore",
+    "NoopCacheStore",
     "NoopFeedbackRecorder",
+    "NoopLexicalSearch",
     "NoopRankingLogPublisher",
     "PubSubFeedbackRecorder",
     "PubSubPublisher",

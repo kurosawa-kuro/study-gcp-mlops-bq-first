@@ -31,11 +31,12 @@ class _FakeRetriever:
     def retrieve(
         self,
         *,
+        query_text: str,
         query_vector: list[float],
         filters: dict[str, Any],
         top_k: int,
     ) -> list[Candidate]:
-        self.calls.append({"filters": filters, "top_k": top_k})
+        self.calls.append({"query_text": query_text, "filters": filters, "top_k": top_k})
         return list(self.candidates)
 
 
@@ -81,6 +82,7 @@ def _candidate(i: int) -> Candidate:
     return Candidate(
         property_id=f"P-{i:03d}",
         lexical_rank=i,
+        semantic_rank=i,
         me5_score=0.9 - 0.05 * i,
         property_features={
             "rent": 100_000,
@@ -104,6 +106,7 @@ def test_run_search_preserves_lexical_order() -> None:
         retriever=retriever,
         publisher=publisher,
         request_id="req-1",
+        query_text="駅近",
         query_vector=[0.1, 0.2],
         filters={"max_rent": 150_000},
         top_k=3,
@@ -119,6 +122,7 @@ def test_run_search_final_rank_equals_lexical_rank_without_booster() -> None:
         retriever=retriever,
         publisher=publisher,
         request_id="req-2",
+        query_text="駅近",
         query_vector=[0.0],
         filters={},
         top_k=4,
@@ -136,6 +140,7 @@ def test_run_search_publishes_full_pool_not_just_top_k() -> None:
         retriever=retriever,
         publisher=publisher,
         request_id="req-3",
+        query_text="駅近",
         query_vector=[0.0],
         filters={},
         top_k=2,
@@ -151,6 +156,7 @@ def test_run_search_forwards_filters_to_retriever() -> None:
         retriever=retriever,
         publisher=publisher,
         request_id="req-5",
+        query_text="駅近",
         query_vector=[0.0],
         filters={"max_rent": 200_000, "pet_ok": True, "layout": "2LDK"},
         top_k=5,
@@ -169,6 +175,7 @@ def test_run_search_empty_result() -> None:
         retriever=retriever,
         publisher=publisher,
         request_id="req-6",
+        query_text="駅近",
         query_vector=[0.0],
         filters={},
         top_k=10,
@@ -189,6 +196,7 @@ def test_run_search_rerank_reverses_order_when_booster_says_so() -> None:
         retriever=retriever,
         publisher=publisher,
         request_id="req-rr",
+        query_text="駅近",
         query_vector=[0.0],
         filters={},
         top_k=4,
@@ -214,6 +222,7 @@ def test_run_search_rerank_truncates_to_top_k(top_k: int) -> None:
         retriever=retriever,
         publisher=publisher,
         request_id="req-tk",
+        query_text="駅近",
         query_vector=[0.0],
         filters={},
         top_k=top_k,
@@ -240,6 +249,7 @@ def test_run_search_rerank_with_higher_score_wins() -> None:
         retriever=retriever,
         publisher=publisher,
         request_id="req-wins",
+        query_text="駅近",
         query_vector=[0.0],
         filters={},
         top_k=3,

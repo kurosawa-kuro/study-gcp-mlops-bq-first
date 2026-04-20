@@ -52,6 +52,20 @@ def test_search_top_k_truncates_response(search_client) -> None:
     assert len(r.json()["results"]) == 2
 
 
+def test_search_cache_hit_skips_second_retrieval(app_with_search_stub) -> None:
+    from fastapi.testclient import TestClient
+
+    client = TestClient(app_with_search_stub)
+    payload = _search_payload()
+    r1 = client.post("/search", json=payload)
+    assert r1.status_code == 200
+    r2 = client.post("/search", json=payload)
+    assert r2.status_code == 200
+
+    retriever = app_with_search_stub.state.candidate_retriever
+    assert len(retriever.calls) == 1
+
+
 def test_search_rejects_empty_query(search_client) -> None:
     payload = _search_payload()
     payload["query"] = ""

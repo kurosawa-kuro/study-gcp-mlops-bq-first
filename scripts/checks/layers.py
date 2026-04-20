@@ -56,6 +56,8 @@ RULES: dict[str, frozenset[str]] = {
     "app/src/app/ports/publisher.py": COMMON_ADAPTERS,
     "app/src/app/ports/retrain_queries.py": COMMON_ADAPTERS,
     "app/src/app/ports/training_job_runner.py": COMMON_ADAPTERS,
+    "app/src/app/ports/cache_store.py": COMMON_ADAPTERS,
+    "app/src/app/ports/lexical_search.py": COMMON_ADAPTERS,
     "app/src/app/ports/candidate_retriever.py": COMMON_ADAPTERS | frozenset({"lightgbm"}),
     "app/src/app/ports/model_store.py": COMMON_ADAPTERS | frozenset({"lightgbm"}),
     "app/src/app/services/retrain_policy.py": COMMON_ADAPTERS,

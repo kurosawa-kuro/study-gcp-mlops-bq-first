@@ -15,7 +15,10 @@ class Candidate:
     """One candidate property returned from the lexical / vector search step."""
 
     property_id: str
+    # BM25-side rank from lexical retrieval (Meilisearch).
     lexical_rank: int
+    # VECTOR_SEARCH-side rank from semantic retrieval.
+    semantic_rank: int
     me5_score: float
     property_features: dict[str, Any]
 
@@ -24,6 +27,7 @@ class CandidateRetriever(Protocol):
     def retrieve(
         self,
         *,
+        query_text: str,
         query_vector: list[float],
         filters: dict[str, Any],
         top_k: int,

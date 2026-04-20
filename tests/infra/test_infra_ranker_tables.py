@@ -85,6 +85,9 @@ def test_ranking_log_declared_with_dual_cluster() -> None:
         "ranking_log must be clustered on request_id + property_id so per-request "
         "offline evaluation stays under scan quota."
     )
+    for col in ("schema_version", "semantic_rank", "rrf_rank"):
+        assert f'name = "{col}"' in block, f"ranking_log.{col} missing"
+    assert 'name = "semantic_rank", type = "FLOAT64", mode = "NULLABLE"' in block
 
 
 def test_feedback_events_declared() -> None:

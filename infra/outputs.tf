@@ -62,3 +62,13 @@ output "dataform_repository_name" {
   description = "Dataform repository name — matches env.REPOSITORY in .github/workflows/deploy-dataform.yml"
   value       = module.data.dataform_repository.name
 }
+
+output "meili_base_url" {
+  description = "Cloud Run URL of meili-search service"
+  value       = module.meilisearch.meili_base_url
+}
+
+output "meili_data_bucket" {
+  description = "GCS bucket mounted by meili-search"
+  value       = module.meilisearch.meili_data_bucket.name
+}

@@ -1,6 +1,6 @@
 # study-gcp-mlops-bq-first
 
-BigQuery + Cloud Run に閉じた軽量 MLOps パイプライン — **不動産ハイブリッド検索 × LightGBM LambdaRank**。Vertex AI / Meilisearch / Redis / PostgreSQL を一切使用せず、系譜は BQ `mlops.training_runs` + GCS イミュータブルパスで管理する `bq-first` 構成。
+BigQuery + Cloud Run に閉じた軽量 MLOps パイプライン — **不動産ハイブリッド検索 × LightGBM LambdaRank**。Meilisearch (lexical) + BigQuery VECTOR_SEARCH (semantic) + RRF fusion を採用し、キャッシュは `cachetools.TTLCache` の in-memory 構成で運用する `bq-first`。
 
 > **スコープ**: 不動産検索 (クエリ文 + フィルタ → ランキング上位 20 件) のみ。旧 California Housing 回帰は削除済 (Phase 10b/10c)。
 
@@ -18,10 +18,12 @@ raw.properties (upstream ETL)
   └─ Cloud Run Jobs `training-job`  (LightGBM LambdaRank) ─> GCS (gs://mlops-dev-a-models/lgbm/{date}/{run_id}/) + mlops.training_runs
 
          └─ Cloud Run Service `search-api` (FastAPI)
-              ├─ /search   lifespan encoder + BQ VECTOR_SEARCH → rerank (Phase 6+)
+              ├─ /search   lifespan encoder + Meilisearch(BM25) + BQ VECTOR_SEARCH → RRF → rerank (Phase 6+)
               │             └─ Pub/Sub "ranking-log"    ─> BQ Subscription ─> mlops.ranking_log
               ├─ /feedback └─ Pub/Sub "search-feedback" ─> BQ Subscription ─> mlops.feedback_events
               └─ /jobs/check-retrain / /events/retrain (Cloud Scheduler 04:00 JST → Eventarc → training-job)
+
+  └─ Cloud Run Service `meili-search` (GCS FUSE `/meili_data` mount)
 
   └─ Scheduled Query 05:00 JST `property_feature_skew_check` ─> mlops.validation_results
        └─ Cloud Monitoring ログベースメトリクス + Looker Studio
@@ -46,7 +48,7 @@ raw.properties (upstream ETL)
 
 詳細は [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md) と [`docs/01_仕様と設計.md`](docs/01_仕様と設計.md)。
 
-- **Vertex AI / Meilisearch / Redis / PostgreSQL 非採用**。候補抽出は BigQuery VECTOR_SEARCH、埋め込みは自前 Cloud Run で ME5 ロード、再ランクは LightGBM LambdaRank
+- **Vertex AI / PostgreSQL / Redis サーバ非採用**。候補抽出は Meilisearch(BM25) + BigQuery VECTOR_SEARCH を RRF で融合し、再ランクは LightGBM LambdaRank
 - **Training-Serving Skew 対策**: Dataform SQL (`property_features_daily`) と `common.feature_engineering.build_ranker_features` を同一式で維持 (変更時は 5 ファイル同一 PR)
 - **Phase 4 rerank-free MVP**: LightGBM booster を lifespan にロードしなくても `/search` は候補抽出 (`final_rank = lexical_rank`) を返せる。Phase 6 で rerank を bolt-on
 - **認証**: Cloud Run Service は `--no-allow-unauthenticated`。CI は Workload Identity Federation (SA Key 不使用)

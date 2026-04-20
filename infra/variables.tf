@@ -18,6 +18,12 @@ variable "models_bucket_name" {
   default = "mlops-dev-a-models"
 }
 
+variable "meili_data_bucket_name" {
+  description = "GCS bucket name mounted by meili-search"
+  type        = string
+  default     = "mlops-dev-a-meili-data"
+}
+
 variable "artifacts_bucket_name" {
   type    = string
   default = "mlops-dev-a-artifacts"
@@ -55,4 +61,10 @@ variable "enable_deletion_protection" {
   description = "Toggle BQ table deletion_protection across the data module. Default true (production-safe). `make destroy-all` runs `terraform apply -var=enable_deletion_protection=false` first so the subsequent destroy can proceed (Terraform refuses to destroy a table whose state still says deletion_protection=true)."
   type        = bool
   default     = true
+}
+
+variable "search_cache_ttl_seconds" {
+  description = "Default /search cache TTL seconds passed to search-api"
+  type        = number
+  default     = 120
 }

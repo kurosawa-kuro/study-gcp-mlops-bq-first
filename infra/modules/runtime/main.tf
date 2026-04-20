@@ -63,6 +63,14 @@ resource "google_cloud_run_v2_service" "search_api" {
         name  = "RETRAIN_TOPIC"
         value = google_pubsub_topic.retrain_trigger.name
       }
+      env {
+        name  = "MEILI_BASE_URL"
+        value = var.meili_base_url
+      }
+      env {
+        name  = "SEARCH_CACHE_TTL_SECONDS"
+        value = tostring(var.search_cache_ttl_seconds)
+      }
     }
   }
 

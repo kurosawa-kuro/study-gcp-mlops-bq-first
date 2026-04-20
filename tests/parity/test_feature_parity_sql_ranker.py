@@ -3,7 +3,8 @@
 ``validate_feature_skew.sql`` lists the property-side feature subset twice
 (training + serving UNPIVOT). Both lists must match the 7 property-side
 columns drawn from ``FEATURE_COLS_RANKER`` — i.e. every column in
-``FEATURE_COLS_RANKER`` *except* ``me5_score`` and ``lexical_rank`` (which are
+``FEATURE_COLS_RANKER`` *except* ``me5_score`` / ``lexical_rank`` /
+``semantic_rank`` (which are
 query-time signals with no training-side representation; they are monitored
 via separate sentinels in the same SQL).
 """
@@ -21,7 +22,9 @@ SQL_PATH = REPO_ROOT / "monitoring" / "validate_feature_skew.sql"
 
 # 7 property-side columns monitored via UNPIVOT (order must match SQL).
 PROPERTY_SIDE_COLS: list[str] = [
-    c for c in FEATURE_COLS_RANKER if c not in {"me5_score", "lexical_rank"}
+    c
+    for c in FEATURE_COLS_RANKER
+    if c not in {"me5_score", "lexical_rank", "semantic_rank"}
 ]
 
 _UNPIVOT_RE = re.compile(
@@ -59,7 +62,7 @@ def test_ranker_unpivot_matches_property_side_cols(block_index: int) -> None:
         f"UNPIVOT #{block_index} diverged from property-side FEATURE_COLS_RANKER. "
         f"SQL: {lists[block_index]}. Expected: {PROPERTY_SIDE_COLS}. "
         "Update the UNPIVOT list to match feature_schema.FEATURE_COLS_RANKER "
-        "(minus me5_score / lexical_rank which are query-time signals)."
+        "(minus me5_score / lexical_rank / semantic_rank which are query-time signals)."
     )
 
 

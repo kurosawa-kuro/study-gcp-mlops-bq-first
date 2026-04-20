@@ -44,3 +44,15 @@ variable "service_accounts" {
   description = "Map of SA resources emitted by the iam module. Uses .email for bindings."
   type        = any
 }
+
+variable "meili_base_url" {
+  description = "Base URL of meili-search Cloud Run service"
+  type        = string
+  default     = ""
+}
+
+variable "search_cache_ttl_seconds" {
+  description = "Default /search cache TTL in seconds"
+  type        = number
+  default     = 120
+}
