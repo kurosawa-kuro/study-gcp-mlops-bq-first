@@ -32,6 +32,9 @@ htmlcov/
 .env
 .env.*
 .envrc
+# env/secret/ はローカル開発用クレデンシャル置き場。README のみコミットする
+env/secret/*
+!env/secret/README.md
 # Defense-in-depth: we use Workload Identity Federation, so no SA keys should
 # ever exist in the repo. These patterns catch accidental drops.
 *-credentials.json

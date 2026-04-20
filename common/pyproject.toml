@@ -5,7 +5,7 @@ description = "Shared utilities for app/ and jobs/ (config, logging, GCS, BQ rep
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.8",
-    "pydantic-settings>=2.4",
+    "pydantic-settings[yaml]>=2.4",
     "google-cloud-bigquery>=3.25",
     "google-cloud-bigquery-storage>=2.27",
     "google-cloud-storage>=2.18",
